@@ -8,9 +8,14 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 const jobPostingSchema = z.object({
   company: z.string().describe("The name of the company posting the job"),
   jobTitle: z.string().describe("The job title (e.g., SWE I, MLE, Senior Backend Engineer)"),
+  location: z.string().nullable().describe("The job location (e.g., 'San Francisco, CA', 'Remote', 'New York, NY'). Return null if not specified."),
   skills: z.array(z.string()).describe("Required programming languages, libraries, tools, and domain-specific knowledge"),
   responsibilities: z.array(z.string()).describe("Single-sentence summaries of key job responsibilities"),
+  qualifications: z.array(z.string()).describe("Required qualifications including education (e.g., Bachelor's/Master's degree), certifications, publications, and other formal requirements"),
+  yearlyPay: z.number().nullable().describe("The yearly salary/compensation in dollars as a number. Return null if not specified."),
+  benefits: z.array(z.string()).describe("Benefits offered including stock options, health insurance, lodging, 401k, PTO, etc."),
   postingDate: z.string().nullable().describe("The date the job was posted in JavaScript Date string format (e.g., '2025-01-15'). Return null if not specified."),
+  fetchDate: z.string().describe("The date and time when this job data was fetched"),
   postSource: z.string().describe("The URL of the job posting")
 });
 
@@ -46,8 +51,12 @@ async function extractJobData(url) {
 Extract the following information from the job posting:
 - Company name
 - Job title (the specific role title like "SWE I", "Machine Learning Engineer", "Senior Backend Engineer", etc.)
+- Location (city and state, or "Remote", or "Hybrid". Return null if not specified)
 - Skills and experiences required (programming languages, frameworks, libraries, tools, domain knowledge)
 - Key responsibilities (provide single-sentence summaries)
+- Qualifications (education requirements like Bachelor's/Master's degree, certifications, publications, and other formal qualifications)
+- Yearly pay (the annual salary/compensation as a number in dollars, e.g., 120000 for $120k. Return null if not specified or if only a range is given)
+- Benefits (stock options, health insurance, lodging, 401k, PTO, remote work, etc.)
 - Posting date (if available, convert to ISO date string format like "2025-01-15")
 - The source URL (which is: ${url})
 
@@ -87,9 +96,14 @@ Make sure to thoroughly search for and extract all relevant technical skills, to
     const jobData = jobPostingSchema.parse({
       company: rawData.company || rawData.company_name,
       jobTitle: rawData.jobTitle || rawData.job_title,
-      skills: rawData.skills || rawData.skills_and_experiences,
-      responsibilities: rawData.responsibilities || rawData.key_responsibilities,
+      location: rawData.location || null,
+      skills: rawData.skills || rawData.skills_and_experiences || rawData.skills_and_experiences_required || [],
+      responsibilities: rawData.responsibilities || rawData.key_responsibilities || [],
+      qualifications: rawData.qualifications || rawData.required_qualifications || [],
+      yearlyPay: rawData.yearlyPay || rawData.yearly_pay || rawData.salary || null,
+      benefits: rawData.benefits || [],
       postingDate: rawData.postingDate || rawData.posting_date,
+      fetchDate: new Date().toISOString(),
       postSource: rawData.postSource || rawData.source_url
     });
 
