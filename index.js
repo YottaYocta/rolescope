@@ -111,7 +111,7 @@ Provide a comprehensive extraction of all the information you find.`,
     console.error("Converting to structured JSON...");
     const structuredResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Convert the following job posting information into a JSON object with this exact structure:
+      contents: `Convert the following job posting information into a valid JSON object with this exact structure:
 
 {
   "company": "string - company name",
@@ -126,10 +126,14 @@ Provide a comprehensive extraction of all the information you find.`,
   "source_url": "${url}"
 }
 
-Job posting information:
-${extractedInfo}
+CRITICAL: Return ONLY valid JSON. Do not include:
+- Any explanatory text or comments
+- Markdown code blocks
+- Any text outside the JSON object
+- Any invalid JSON syntax (ensure all strings are properly quoted, arrays are properly formatted, no trailing text)
 
-Return ONLY the JSON object, no other text or markdown formatting.`,
+Job posting information:
+${extractedInfo}`,
       config: {}, // No tools for structured conversion
     });
 
@@ -162,7 +166,28 @@ Return ONLY the JSON object, no other text or markdown formatting.`,
       jsonText = responseText.substring(jsonStart, lastBrace + 1).trim();
     }
 
-    const rawData = JSON.parse(jsonText);
+    let rawData;
+    try {
+      rawData = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError.message);
+      console.error("Attempting to clean and retry...");
+
+      // Try to fix common JSON issues
+      let cleanedJson = jsonText
+        // Remove any text after quotes that shouldn't be there
+        .replace(/"([^"]*)"[^,\]\}]/g, '"$1",')
+        // Fix trailing commas before closing brackets
+        .replace(/,(\s*[\]\}])/g, '$1');
+
+      try {
+        rawData = JSON.parse(cleanedJson);
+        console.error("Successfully parsed after cleaning");
+      } catch (retryError) {
+        console.error("Failed to parse even after cleaning:", retryError.message);
+        throw new Error(`Invalid JSON from API: ${parseError.message}`);
+      }
+    }
 
     // Map field names (handle both snake_case and camelCase)
     const jobData = jobPostingSchema.parse({
